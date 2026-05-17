@@ -357,4 +357,163 @@ fig.suptitle(
 plt.tight_layout()
 save('fig_reaction_term')
 
+# ============================================================
+# Figure 9: Piecewise linear approximation over a mesh
+#   For: "Cont." after Step 2  [Visualize Here]
+# ============================================================
+x_smooth = np.linspace(0, 1, 400)
+T_smooth = np.sin(np.pi * x_smooth)          # smooth exact "true" solution
+
+x_n = np.array([0, 1/3, 2/3, 1.0])
+T_n = np.sin(np.pi * x_n)                    # exact values at nodes
+
+fig, ax = plt.subplots(figsize=(8, 3.4))
+elem_cols = ['#BBDEFB', '#90CAF9', '#64B5F6']
+for i, col in enumerate(elem_cols):
+    ax.axvspan(x_n[i], x_n[i+1], alpha=0.18, color=col, zorder=0)
+    ax.text((x_n[i]+x_n[i+1])/2, 0.06, f'Elem {i+1}',
+            ha='center', fontsize=9, color=BLUE, fontweight='bold')
+
+T_fem_fine = np.interp(x_smooth, x_n, T_n)
+ax.fill_between(x_smooth, T_smooth, T_fem_fine, alpha=0.25, color=RED, label='Error between nodes')
+ax.plot(x_smooth, T_smooth, 'k--', lw=2, label='True $T(x)$ (smooth)')
+ax.plot(x_n, T_n, 'o-', color=BLUE, lw=2.5, markersize=9, label='FEM (piecewise linear)')
+
+for xi, Ti, lbl in zip(x_n, T_n, ['$T_1$', '$T_2$', '$T_3$', '$T_4$']):
+    ax.annotate(lbl, (xi, Ti), textcoords='offset points',
+                xytext=(0, 10), ha='center', fontsize=11, color=RED, fontweight='bold')
+
+ax.set_xticks(x_n)
+ax.set_xticklabels(['$x_1=0$', '$x_2=h$', '$x_3=2h$', '$x_4=L$'])
+ax.set_ylabel('Temperature $T$')
+ax.set_title(r'FEM approximation: $T(x)\approx\sum_i T_i N_i(x)$ is piecewise linear')
+ax.legend(fontsize=9, loc='upper right')
+plt.tight_layout()
+save('fig_piecewise_approx')
+
+
+# ============================================================
+# Figure 10: Why T'' = 0 for a linear element
+#   For: Step 3  [Visualization Here]
+# ============================================================
+T1v, T2v = 60.0, 100.0
+h_e = 1.0
+xv = np.linspace(0, h_e, 200)
+Tv   = T1v + (T2v - T1v) * xv / h_e
+dTv  = np.full_like(xv, (T2v - T1v) / h_e)
+d2Tv = np.zeros_like(xv)
+
+fig, axes = plt.subplots(1, 3, figsize=(9, 3.0))
+data = [(Tv,   '$T(x)$',              BLUE,   'Linear function',    None),
+        (dTv,  r"$\frac{dT}{dx}$",   ORANGE, 'Constant slope',     f'{(T2v-T1v)/h_e:.0f}'),
+        (d2Tv, r"$\frac{d^2T}{dx^2}$", RED,  r'$\mathbf{= 0}$ !', '0')]
+
+for ax, (y, ylabel, col, title, annot) in zip(axes, data):
+    ax.plot(xv, y, color=col, lw=2.5)
+    ax.set_xlabel('$x$ (local)')
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.set_xticks([0, h_e])
+    ax.set_xticklabels(['$0$', '$h$'])
+    ax.axhline(0, color='black', lw=0.7)
+    if annot:
+        ax.text(0.5, 0.5, annot, transform=ax.transAxes,
+                ha='center', va='center', fontsize=13, color=col,
+                fontweight='bold', alpha=0.4)
+
+axes[0].plot([0, h_e], [T1v, T2v], 'o', color=BLUE, markersize=9, zorder=5)
+fig.suptitle(r'Linear $T(x) = T_1 N_1 + T_2 N_2$ $\Rightarrow$ $T^{\prime\prime}=0$  everywhere inside the element',
+             fontsize=11, y=1.02)
+plt.tight_layout()
+save('fig_zero_second_deriv')
+
+
+# ============================================================
+# Figure 11: T₁N₁ + T₂N₂ = linear interpolation
+#   For: Step 4a  [Figure here showing linear interpolation]
+# ============================================================
+T1v, T2v = 40.0, 100.0
+xv = np.linspace(0, 1.0, 300)
+N1v = 1 - xv
+N2v = xv
+
+fig, ax = plt.subplots(figsize=(7.5, 3.2))
+ax.plot(xv, T1v * N1v, '--', color=BLUE,   lw=2, label=f'$T_1 \\cdot N_1(x)$  (decays from {T1v:.0f} to 0)')
+ax.plot(xv, T2v * N2v, '--', color=ORANGE, lw=2, label=f'$T_2 \\cdot N_2(x)$  (grows from 0 to {T2v:.0f})')
+ax.plot(xv, T1v*N1v + T2v*N2v, '-', color=GREEN, lw=3,
+        label=f'Sum $= T_1 N_1 + T_2 N_2$  (straight line!)')
+ax.plot([0, 1], [T1v, T2v], 'o', color=RED, markersize=11, zorder=6)
+ax.annotate(f'$T_1={T1v:.0f}$', (0, T1v), textcoords='offset points', xytext=(8, -18),
+            fontsize=11, color=RED, fontweight='bold')
+ax.annotate(f'$T_2={T2v:.0f}$', (1, T2v), textcoords='offset points', xytext=(-45, 6),
+            fontsize=11, color=RED, fontweight='bold')
+ax.set_xticks([0, 0.5, 1])
+ax.set_xticklabels(['$0$', '$h/2$', '$h$'])
+ax.set_xlabel('Local position $x$')
+ax.set_ylabel('Temperature')
+ax.set_title('Shape function sum = linear interpolation between node values')
+ax.legend(fontsize=9)
+plt.tight_layout()
+save('fig_linear_interp_demo')
+
+
+# ============================================================
+# Figure 12: Nodal error visualization
+#   For: "Why Are Nodal Errors Zero?" section
+#   Problem: -T'' = sin(πx), T(0)=T(1)=0  →  T_exact = sin(πx)/π²
+# ============================================================
+from numpy.polynomial.legendre import leggauss
+
+k_nd = 1.0
+Q_nd     = lambda x: np.sin(np.pi * x)
+T_ex_fn  = lambda x: np.sin(np.pi * x) / np.pi**2
+
+n_elem_nd = 4
+n_nd = n_elem_nd + 1
+h_nd = 1.0 / n_elem_nd
+x_nd = np.linspace(0, 1.0, n_nd)
+
+K_nd = np.zeros((n_nd, n_nd))
+F_nd = np.zeros(n_nd)
+Ke_nd = (k_nd / h_nd) * np.array([[1., -1.], [-1., 1.]])
+gp, gw = leggauss(10)
+for e in range(n_elem_nd):
+    xi, xj = x_nd[e], x_nd[e+1]
+    K_nd[e:e+2, e:e+2] += Ke_nd
+    xg = 0.5*(xi+xj) + 0.5*(xj-xi)*gp
+    Qg = Q_nd(xg)
+    F_nd[e]   += 0.5*(xj-xi) * np.dot(gw, Qg * (xj-xg)/h_nd)
+    F_nd[e+1] += 0.5*(xj-xi) * np.dot(gw, Qg * (xg-xi)/h_nd)
+K_nd[0, :]=0.; K_nd[0,0]=1.;   F_nd[0]=0.
+K_nd[-1,:]=0.; K_nd[-1,-1]=1.; F_nd[-1]=0.
+T_fem_nd = np.linalg.solve(K_nd, F_nd)
+
+x_fine_nd  = np.linspace(0, 1.0, 500)
+T_ex_fine  = T_ex_fn(x_fine_nd)
+T_fem_fine = np.interp(x_fine_nd, x_nd, T_fem_nd)   # piecewise linear
+err_fine   = T_ex_fine - T_fem_fine
+err_nodes  = T_ex_fn(x_nd) - T_fem_nd
+
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 4.5), sharex=True,
+                                gridspec_kw={'height_ratios': [2, 1]})
+
+ax1.plot(x_fine_nd, T_ex_fine, 'k--', lw=2, label='Exact $T(x)$', zorder=4)
+ax1.plot(x_nd, T_fem_nd, 'o-', color=BLUE, lw=2, markersize=9, label='FEM (4 elements)')
+ax1.fill_between(x_fine_nd, T_ex_fine, T_fem_fine, alpha=0.25, color=RED,
+                 label='Error between nodes')
+ax1.set_ylabel('Temperature $T$')
+ax1.set_title(r'$-T^{\prime\prime} = \sin(\pi x)$: FEM nodes are exact, error lives between them')
+ax1.legend(fontsize=9, loc='upper right')
+
+ax2.plot(x_fine_nd, err_fine, color=RED, lw=2, label='$e(x) = T_{true} - T_{FEM}$')
+ax2.plot(x_nd, err_nodes, 'o', color=GREEN, markersize=11, zorder=5,
+         label=f'Nodal error  (max = {np.max(np.abs(err_nodes)):.1e})')
+ax2.axhline(0, color='black', lw=0.8)
+ax2.set_xlabel('Position $x$')
+ax2.set_ylabel('Error $e(x)$')
+ax2.legend(fontsize=9, loc='upper right')
+
+plt.tight_layout()
+save('fig_nodal_error')
+
 print('\nAll figures saved to figures/')
