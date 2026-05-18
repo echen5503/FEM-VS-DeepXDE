@@ -516,4 +516,66 @@ ax2.legend(fontsize=9, loc='upper right')
 plt.tight_layout()
 save('fig_nodal_error')
 
+# ============================================================
+# Figure 13: Inverse Problem — recover k from sparse noisy data
+# ============================================================
+from config import L as L_inv, k as k_true, Q as Q_inv, T0 as T0_inv, TL as TL_inv
+
+def T_analytical_k(x, k):
+    C2 = T0_inv
+    C1 = (TL_inv - T0_inv + Q_inv * L_inv**2 / (2 * k)) / L_inv
+    return -(Q_inv / (2 * k)) * x**2 + C1 * x + C2
+
+# True solution
+x_fine_inv = np.linspace(0, L_inv, 400)
+T_true_inv = T_analytical_k(x_fine_inv, k_true)
+
+# Synthetic sensor measurements (sparse + noisy)
+np.random.seed(7)
+n_sensors = 8
+x_sens = np.sort(np.random.uniform(0.05, 0.95, n_sensors))
+T_sens  = T_analytical_k(x_sens, k_true) + np.random.randn(n_sensors) * 1.5
+
+# Loss landscape: data MSE over a range of k guesses
+k_range  = np.linspace(15, 100, 500)
+data_mse = [np.mean((T_analytical_k(x_sens, k) - T_sens)**2) for k in k_range]
+k_found  = k_range[np.argmin(data_mse)]
+
+# Solution with a bad initial guess
+k_wrong = 20.0
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.0))
+
+# --- Panel A: solution comparison ---
+ax1.plot(x_fine_inv, T_true_inv,
+         'k--', lw=2, label=f'True  ($k={k_true:.0f}$ W/m·K)', zorder=4)
+ax1.plot(x_fine_inv, T_analytical_k(x_fine_inv, k_wrong),
+         color=RED, lw=1.8, ls=':', label=f'Wrong guess  ($k={k_wrong:.0f}$)')
+ax1.plot(x_fine_inv, T_analytical_k(x_fine_inv, k_found),
+         color=BLUE, lw=2.2, label=f'Recovered  ($k={k_found:.1f}$)')
+ax1.plot(x_sens, T_sens, 'o', color=ORANGE, markersize=9, zorder=5,
+         label=f'{n_sensors} noisy sensors')
+ax1.set_xlabel('Position $x$ (m)')
+ax1.set_ylabel('Temperature $T$ (°C)')
+ax1.set_title('Recovering $k$ from Sparse Measurements')
+ax1.legend(fontsize=8.5)
+
+# --- Panel B: loss landscape ---
+ax2.plot(k_range, data_mse, color=BLUE, lw=2)
+ax2.axvline(k_true,  color='black', ls='--', lw=1.8, label=f'True $k={k_true:.0f}$')
+ax2.axvline(k_found, color=RED,   ls=':',  lw=1.8, label=f'Min loss at $k={k_found:.1f}$')
+ax2.fill_between(k_range, data_mse,
+                 where=[abs(k - k_found) < 3 for k in k_range],
+                 alpha=0.2, color=BLUE)
+ax2.set_xlabel('Conductivity $k$ (W/m·K)')
+ax2.set_ylabel('Data MSE  (°C²)')
+ax2.set_title('Loss Landscape: unique minimum near true $k$')
+ax2.legend(fontsize=9)
+
+fig.suptitle(
+    r'Inverse Problem: identify $k$ from noisy sensor data using $\mathcal{L}_{data}$',
+    fontsize=11, y=1.02)
+plt.tight_layout()
+save('fig_inverse_problem')
+
 print('\nAll figures saved to figures/')
